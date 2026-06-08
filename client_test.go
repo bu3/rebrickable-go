@@ -22,7 +22,7 @@ func TestNewClient_SetsAuthorizationHeader(t *testing.T) {
 	}
 }
 
-func TestNewAuthenticatedClient_Success(t *testing.T) {
+func TestGetUserToken_Success(t *testing.T) {
 	type tokenResp struct {
 		UserToken string `json:"user_token"`
 	}
@@ -43,7 +43,7 @@ func TestNewAuthenticatedClient_Success(t *testing.T) {
 	}
 }
 
-func TestNewAuthenticatedClient_Failure(t *testing.T) {
+func TestGetUserToken_Failure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
@@ -101,36 +101,26 @@ func TestFetchAllPagesPagination(t *testing.T) {
 	}
 }
 
-func TestNewAuthenticatedClient_SetsToken(t *testing.T) {
+func TestGetUserToken_SetsAuthToken(t *testing.T) {
 	type tokenResp struct {
 		UserToken string `json:"user_token"`
 	}
-	var capturedPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/users/_token/" {
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(tokenResp{UserToken: "mytoken"})
-		} else {
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"count": 0, "next": "", "results": []interface{}{}})
-		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(tokenResp{UserToken: "mytoken"})
 	}))
 	defer server.Close()
 
-	// Build authenticated client
 	c := newClientWithBaseURL("apikey", "", server.URL)
 	token, err := c.getUserToken("user", "pass")
 	if err != nil {
 		t.Fatalf("getUserToken() error = %v", err)
 	}
-	authedClient := newClientWithBaseURL("apikey", token, server.URL)
 
-	// Verify userPath uses the token
+	authedClient := newClientWithBaseURL("apikey", token, server.URL)
 	path := authedClient.userPath("/sets/")
 	if path != "/users/mytoken/sets/" {
 		t.Errorf("userPath() = %q, want %q", path, "/users/mytoken/sets/")
 	}
-	_ = capturedPath // used by handler
 }
