@@ -55,3 +55,82 @@ func TestNewAuthenticatedClient_Failure(t *testing.T) {
 		t.Error("getUserToken() expected error for 401, got nil")
 	}
 }
+
+func TestUserPath(t *testing.T) {
+	c := newClientWithBaseURL("key", "mytoken", "http://example.com")
+	got := c.userPath("/sets/")
+	want := "/users/mytoken/sets/"
+	if got != want {
+		t.Errorf("userPath() = %q, want %q", got, want)
+	}
+}
+
+func TestFetchAllPagesPagination(t *testing.T) {
+	type item struct {
+		ID int `json:"id"`
+	}
+	type pageResp struct {
+		Count   int    `json:"count"`
+		Next    string `json:"next"`
+		Results []item `json:"results"`
+	}
+
+	var serverURL string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if r.URL.Query().Get("page") == "2" {
+			_ = json.NewEncoder(w).Encode(pageResp{Count: 2, Results: []item{{ID: 2}}})
+		} else {
+			_ = json.NewEncoder(w).Encode(pageResp{Count: 2, Next: serverURL + "/?page=2", Results: []item{{ID: 1}}})
+		}
+	}))
+	defer server.Close()
+	serverURL = server.URL
+
+	c := newClientWithBaseURL("key", "", server.URL)
+	count, results, err := fetchAllPages[struct{ ID int `json:"id"` }](c.http, "/")
+	if err != nil {
+		t.Fatalf("fetchAllPages() error = %v", err)
+	}
+	if count != 2 {
+		t.Errorf("fetchAllPages() count = %d, want 2", count)
+	}
+	if len(results) != 2 {
+		t.Errorf("fetchAllPages() len(results) = %d, want 2", len(results))
+	}
+}
+
+func TestNewAuthenticatedClient_SetsToken(t *testing.T) {
+	type tokenResp struct {
+		UserToken string `json:"user_token"`
+	}
+	var capturedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/users/_token/" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(tokenResp{UserToken: "mytoken"})
+		} else {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"count": 0, "next": "", "results": []interface{}{}})
+		}
+	}))
+	defer server.Close()
+
+	// Build authenticated client
+	c := newClientWithBaseURL("apikey", "", server.URL)
+	token, err := c.getUserToken("user", "pass")
+	if err != nil {
+		t.Fatalf("getUserToken() error = %v", err)
+	}
+	authedClient := newClientWithBaseURL("apikey", token, server.URL)
+
+	// Verify userPath uses the token
+	path := authedClient.userPath("/sets/")
+	if path != "/users/mytoken/sets/" {
+		t.Errorf("userPath() = %q, want %q", path, "/users/mytoken/sets/")
+	}
+	_ = capturedPath // used by handler
+}
