@@ -2,6 +2,8 @@ package rebrickable
 
 import (
 	"fmt"
+	nethttp "net/http"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -30,7 +32,13 @@ func newClientWithBaseURL(apiKey, authToken, baseURL string) *Client {
 	http := resty.New().
 		SetBaseURL(baseURL).
 		SetHeader("Content-Type", "application/json").
-		SetHeader("Authorization", fmt.Sprintf("key %s", apiKey))
+		SetHeader("Authorization", fmt.Sprintf("key %s", apiKey)).
+		SetRetryCount(3).
+		SetRetryWaitTime(10 * time.Second).
+		SetRetryMaxWaitTime(60 * time.Second).
+		AddRetryCondition(func(r *resty.Response, _ error) bool {
+			return r != nil && r.StatusCode() == nethttp.StatusTooManyRequests
+		})
 
 	return &Client{http: http, authToken: authToken}
 }
