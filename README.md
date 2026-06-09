@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="rebrickable-go-logo.png" alt="rebrickable-go" width="200">
+</p>
+
 # rebrickable-go
 
 Go client library for the [Rebrickable API](https://rebrickable.com/api/).
