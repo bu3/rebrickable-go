@@ -190,3 +190,16 @@ func (c *Client) DeleteUserSet(setNumber string) error {
 	}
 	return nil
 }
+
+func (c *Client) SyncUserSet(setNum string) error {
+	resp, err := c.http.R().
+		SetBody(map[string]string{"set_num": setNum}).
+		Post(c.userPath("/sets/sync/"))
+	if err != nil {
+		return fmt.Errorf("sync set request failed: %w", err)
+	}
+	if resp.StatusCode() != 200 {
+		return fmt.Errorf("sync set failed with status %d", resp.StatusCode())
+	}
+	return nil
+}

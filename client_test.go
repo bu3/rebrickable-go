@@ -1483,3 +1483,32 @@ func TestGetUserSetsPagination(t *testing.T) {
 		t.Errorf("GetUserSets() results[1].SetNum = %q, want %q", result.Results[1].Set.SetNum, page2Set.Set.SetNum)
 	}
 }
+
+func TestSyncUserSet(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		wantErr    bool
+	}{
+		{"synced successfully", 200, false},
+		{"server error", 500, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedPath string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedPath = r.URL.Path
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+			client := newClientWithBaseURL("key", "token", server.URL)
+			err := client.SyncUserSet("10274-1")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SyncUserSet() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && capturedPath != "/users/token/sets/sync/" {
+				t.Errorf("SyncUserSet() path = %q, want /users/token/sets/sync/", capturedPath)
+			}
+		})
+	}
+}
