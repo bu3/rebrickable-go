@@ -203,3 +203,29 @@ func (c *Client) SyncUserSet(setNum string) error {
 	}
 	return nil
 }
+
+func (c *Client) UpdateUserSetListSet(listID, setNum string, quantity int, includeSpares bool) error {
+	resp, err := c.http.R().
+		SetBody(map[string]interface{}{"quantity": quantity, "include_spares": includeSpares}).
+		Patch(c.userPath(fmt.Sprintf("/setlists/%s/sets/%s/", listID, setNum)))
+	if err != nil {
+		return fmt.Errorf("update set list set request failed: %w", err)
+	}
+	if resp.StatusCode() != 200 {
+		return fmt.Errorf("update set list set failed with status %d", resp.StatusCode())
+	}
+	return nil
+}
+
+func (c *Client) ReplaceUserSetListSet(listID, setNum string, quantity int, includeSpares bool) error {
+	resp, err := c.http.R().
+		SetBody(map[string]interface{}{"quantity": quantity, "include_spares": includeSpares}).
+		Put(c.userPath(fmt.Sprintf("/setlists/%s/sets/%s/", listID, setNum)))
+	if err != nil {
+		return fmt.Errorf("replace set list set request failed: %w", err)
+	}
+	if resp.StatusCode() != 200 {
+		return fmt.Errorf("replace set list set failed with status %d", resp.StatusCode())
+	}
+	return nil
+}

@@ -1512,3 +1512,53 @@ func TestSyncUserSet(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateUserSetListSet(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		wantErr    bool
+	}{
+		{"updated successfully", 200, false},
+		{"not found", 404, true},
+		{"server error", 500, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+			client := newClientWithBaseURL("key", "token", server.URL)
+			err := client.UpdateUserSetListSet("42", "10274-1", 2, false)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateUserSetListSet() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestReplaceUserSetListSet(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		wantErr    bool
+	}{
+		{"replaced successfully", 200, false},
+		{"not found", 404, true},
+		{"server error", 500, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+			client := newClientWithBaseURL("key", "token", server.URL)
+			err := client.ReplaceUserSetListSet("42", "10274-1", 2, false)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReplaceUserSetListSet() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
