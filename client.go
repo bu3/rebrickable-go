@@ -3,6 +3,8 @@ package rebrickable
 import (
 	"fmt"
 	nethttp "net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -29,18 +31,41 @@ func NewAuthenticatedClient(apiKey, username, password string) (*Client, error) 
 }
 
 func newClientWithBaseURL(apiKey, authToken, baseURL string) *Client {
+	timeout := envDuration("REBRICKABLE_TIMEOUT", 30*time.Second)
+	retryCount := envInt("REBRICKABLE_RETRY_COUNT", 3)
+	retryWait := envDuration("REBRICKABLE_RETRY_WAIT", 10*time.Second)
+
 	http := resty.New().
 		SetBaseURL(baseURL).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Authorization", fmt.Sprintf("key %s", apiKey)).
-		SetRetryCount(3).
-		SetRetryWaitTime(10 * time.Second).
+		SetTimeout(timeout).
+		SetRetryCount(retryCount).
+		SetRetryWaitTime(retryWait).
 		SetRetryMaxWaitTime(60 * time.Second).
 		AddRetryCondition(func(r *resty.Response, _ error) bool {
 			return r != nil && r.StatusCode() == nethttp.StatusTooManyRequests
 		})
 
 	return &Client{http: http, authToken: authToken}
+}
+
+func envDuration(key string, defaultVal time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
+		}
+	}
+	return defaultVal
+}
+
+func envInt(key string, defaultVal int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return defaultVal
 }
 
 func (c *Client) getUserToken(username, password string) (string, error) {

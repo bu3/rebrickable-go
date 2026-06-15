@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewClient_SetsAuthorizationHeader(t *testing.T) {
@@ -1560,5 +1561,60 @@ func TestReplaceUserSetListSet(t *testing.T) {
 				t.Errorf("ReplaceUserSetListSet() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestClientTimeout_EnvVar(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	t.Setenv("REBRICKABLE_TIMEOUT", "50ms")
+	client := newClientWithBaseURL("key", "token", server.URL)
+	err := client.SyncUserSet("10274-1")
+	if err == nil {
+		t.Error("expected timeout error, got nil")
+	}
+}
+
+func TestClientTimeout_Default(t *testing.T) {
+	t.Setenv("REBRICKABLE_TIMEOUT", "")
+	d := envDuration("REBRICKABLE_TIMEOUT", 30*time.Second)
+	if d != 30*time.Second {
+		t.Errorf("expected default 30s, got %v", d)
+	}
+}
+
+func TestClientTimeout_InvalidFallsBackToDefault(t *testing.T) {
+	t.Setenv("REBRICKABLE_TIMEOUT", "not-a-duration")
+	d := envDuration("REBRICKABLE_TIMEOUT", 30*time.Second)
+	if d != 30*time.Second {
+		t.Errorf("expected default 30s on invalid value, got %v", d)
+	}
+}
+
+func TestClientRetryCount_EnvVar(t *testing.T) {
+	t.Setenv("REBRICKABLE_RETRY_COUNT", "5")
+	n := envInt("REBRICKABLE_RETRY_COUNT", 3)
+	if n != 5 {
+		t.Errorf("expected 5, got %d", n)
+	}
+}
+
+func TestClientRetryCount_InvalidFallsBackToDefault(t *testing.T) {
+	t.Setenv("REBRICKABLE_RETRY_COUNT", "not-a-number")
+	n := envInt("REBRICKABLE_RETRY_COUNT", 3)
+	if n != 3 {
+		t.Errorf("expected default 3 on invalid value, got %d", n)
+	}
+}
+
+func TestClientRetryWait_EnvVar(t *testing.T) {
+	t.Setenv("REBRICKABLE_RETRY_WAIT", "5s")
+	d := envDuration("REBRICKABLE_RETRY_WAIT", 10*time.Second)
+	if d != 5*time.Second {
+		t.Errorf("expected 5s, got %v", d)
 	}
 }
